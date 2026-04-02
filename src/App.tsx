@@ -13,6 +13,7 @@ function App() {
   const [surveyData, setSurveyData] = useState({ age: '' });
   
   const [hardMode, setHardMode] = useState(false);
+  const [advancedMode, setAdvancedMode] = useState(false);
   const [flashColor, setFlashColor] = useState<string | null>(null);
   const [isFlashing, setIsFlashing] = useState(false);
 
@@ -46,7 +47,6 @@ function App() {
         flashIntervalRef.current = window.setInterval(() => {
           setFlashColor(`hsl(${Math.random() * 360}, 80%, 50%)`);
           flashCount++;
-
           if (flashCount >= maxFlashes) {
             if (flashIntervalRef.current) clearInterval(flashIntervalRef.current);
             setFlashColor(null);
@@ -66,7 +66,6 @@ function App() {
         const elapsed = Date.now() - startTime;
         const remaining = Math.max(0, (duration - elapsed) / 1000);
         setTimeLeft(remaining);
-
         if (remaining > 0) {
           timerRef.current = requestAnimationFrame(updateTimer);
         } else {
@@ -134,24 +133,28 @@ function App() {
     return (
       <div className="centered-screen">
         <div className="login-card">
-          <h1>{!user ? "Color Study" : "Settings"}</h1>
+          <h1 className="menu-title">{!user ? "Color Study" : "Settings"}</h1>
           {!user ? (
-            <form onSubmit={(e) => { e.preventDefault(); setShowSurvey(true); setUser(form); }}>
+            <form className="vertical-stack" onSubmit={(e) => { e.preventDefault(); setShowSurvey(true); setUser(form); }}>
               <input placeholder="Name" required onChange={e => setForm({...form, name: e.target.value})} />
               <input placeholder="Postcode" required onChange={e => setForm({...form, postcode: e.target.value})} />
               <button type="submit" className="counter">Enter</button>
             </form>
           ) : (
-            <div className="survey-box">
+            <div className="vertical-stack">
               <select onChange={e => setSurveyData({age: e.target.value})}>
                 <option value="">Age Range...</option>
                 <option value="18-35">18-35</option>
                 <option value="36-55">36-55</option>
                 <option value="55+">55+</option>
               </select>
-              <div className="hard-mode-toggle" onClick={() => setHardMode(!hardMode)}>
+              <div className="toggle-row" onClick={() => setHardMode(!hardMode)}>
                 <span>Hard Mode (3s)</span>
-                <div className={`toggle-switch ${hardMode ? 'active' : ''}`}></div>
+                <div className={`toggle-switch ${hardMode ? 'active red' : ''}`}></div>
+              </div>
+              <div className="toggle-row" onClick={() => setAdvancedMode(!advancedMode)}>
+                <span>Advanced Scoring</span>
+                <div className={`toggle-switch ${advancedMode ? 'active blue' : ''}`}></div>
               </div>
               <button className="counter" onClick={() => setShowSurvey(false)} disabled={!surveyData.age}>Start Game</button>
             </div>
@@ -172,13 +175,13 @@ function App() {
             {history.map((res, i) => (
               <div key={i} className="result-item">
                 <div className="result-swatch" style={{ background: `linear-gradient(135deg, ${hslToCss(res.target)} 50%, ${hslToCss(res.guess)} 50%)` }}>
-                  <span className="round-num">{res.round}</span>
+                  <span className="round-badge">{res.round}</span>
                 </div>
                 <div className="result-score">+{res.score.toFixed(2)}</div>
               </div>
             ))}
           </div>
-          <button className="counter result-btn" onClick={() => setShowResults(false)}>Menu</button>
+          <button className="counter result-btn" onClick={() => setShowResults(false)}>Main Menu</button>
         </div>
       </main>
     );
@@ -189,23 +192,36 @@ function App() {
       {!gameStarted ? (
         <div className="menu-stack">
           <button className="go-btn" onClick={() => { setHistory([]); setRound(1); setGameStarted(true); startRound(); }}>GO</button>
+          
           {leaderboard.length > 0 && (
             <div className="leaderboard-classic">
               <h3>TOP SCORES</h3>
               {leaderboard.map((entry, i) => (
                 <div key={i} className="lb-entry">
-                  <span>{entry.name}</span>
+                  <span className="rank-medal">
+                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
+                  </span>
+                  <span className="lb-name">{entry.name}</span>
                   <span className="dots"></span>
                   <span className="val">{entry.highscore.toFixed(2)}</span>
                 </div>
               ))}
             </div>
           )}
+
+          <div className="info-footer">
+            <h4>SCORING SYSTEM</h4>
+            <p>Scores use a <strong>weighted RGB Euclidean distance</strong> formula. Red (30%), Green (59%), and Blue (11%) are measured to align with human perception.</p>
+            <p>Advanced Mode reveals per-channel HSL precision.</p>
+          </div>
         </div>
       ) : (
         <div className="game-stack">
-          <div className="top-indicator">ROUND {round} / 5 {hardMode && <span className="hard-tag">HARD</span>}</div>
-          
+          <div className="top-indicator">
+            ROUND {round} / 5 
+            {hardMode && <span className="tag red">HARD</span>}
+            {advancedMode && <span className="tag blue">ADV</span>}
+          </div>
           <div className="console-wrapper">
             <div className={`game-console ${(isMemoryPhase || score !== null) ? 'console-full-round' : 'console-split'}`}>
               <div className="swatch-container">
@@ -218,26 +234,45 @@ function App() {
                       backgroundImage: score !== null ? 'linear-gradient(135deg, var(--target) 50%, var(--guess) 50%)' : 'none'
                   } as any}
                 >
-                  {isMemoryPhase && !isFlashing && <div className="timer-text">{timeLeft.toFixed(2)}</div>}
+                  {isMemoryPhase && !isFlashing && (
+                    <div className="timer-text">
+                      <span className="seconds">{Math.floor(timeLeft)}</span>
+                      <span className="ms">{(timeLeft % 1).toFixed(2).substring(2)}</span>
+                    </div>
+                  )}
                   {isFlashing && <div className="timer-text active-flash">?</div>}
-                  {score !== null && <div className="floating-score">+{score.toFixed(2)}</div>}
+                  {score !== null && (
+                    <div className="score-reveal-overlay">
+                       <div className="floating-score">+{score.toFixed(2)}</div>
+                       {advancedMode && (
+                         <div className="advanced-stats">
+                            <div className="stat-line">H ERROR: {Math.abs(target.h - guess.h).toFixed(3)}</div>
+                            <div className="stat-line">S ERROR: {Math.abs(target.s - guess.s).toFixed(3)}</div>
+                            <div className="stat-line">L ERROR: {Math.abs(target.l - guess.l).toFixed(3)}</div>
+                         </div>
+                       )}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {!isMemoryPhase && score === null && (
+              {!isMemoryPhase && (
                 <div className="horizontal-sliders">
                   {(['h', 's', 'l'] as const).map((key) => {
                     let dynamicBg = "";
                     if (key === 'h') dynamicBg = "linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)";
                     else if (key === 's') dynamicBg = `linear-gradient(to right, hsl(${guess.h * 360}, 0%, 50%), hsl(${guess.h * 360}, 100%, 50%))`;
                     else dynamicBg = `linear-gradient(to right, #000, hsl(${guess.h * 360}, ${guess.s * 100}%, 50%), #fff)`;
-                    
                     return (
                       <div key={key} className="h-slider-wrap" style={{ background: dynamicBg }}>
+                        {score !== null && advancedMode && (
+                          <div className="perfect-marker" style={{ left: `${target[key] * 100}%` }}></div>
+                        )}
                         <input 
                           type="range" min="0" max="1" step="0.001" 
-                          className="h-range"
-                          value={guess[key]} 
+                          className={`h-range ${score !== null ? 'locked' : ''}`} 
+                          value={score !== null ? guess[key] : guess[key]} 
+                          disabled={score !== null}
                           onChange={e => setGuess({...guess, [key]: parseFloat(e.target.value)})} 
                         />
                       </div>
